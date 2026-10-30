@@ -16,7 +16,7 @@ app = application
 
 # Configure CORS
 CORS(app, origins=[
-    "https://YOUR-FRONTEND.vercel.app",
+    "https://student-performance-analyser-3a2d.vercel.app",
     "http://localhost:5173"
 ])
 
