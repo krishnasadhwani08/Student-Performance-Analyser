@@ -144,6 +144,22 @@ def api_predict():
             "message": "Prediction failed. Check backend logs."
         }), 500
 
+# -----------------------------------------
+# ROUTE DIAGNOSTICS
+# -----------------------------------------
+
+@app.route('/api/routes', methods=['GET'])
+def list_routes():
+    return jsonify({
+        "routes": [
+            {
+                "path": rule.rule,
+                "methods": list(rule.methods)
+            }
+            for rule in app.url_map.iter_rules()
+        ]
+    })
+
 
 # -----------------------------------------
 # APPLICATION ENTRY POINT
@@ -151,3 +167,5 @@ def api_predict():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
+
+
