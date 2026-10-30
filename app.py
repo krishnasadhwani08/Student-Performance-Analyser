@@ -1,20 +1,22 @@
 
 from flask import Flask, request, render_template, jsonify
 from flask_cors import CORS
-import numpy as np
-import pandas as pd
 
-from sklearn.preprocessing import StandardScaler
 from src.pipeline.predict_pipeline import CustomData, PredictPipeline
 
 
-# Initialize Flask application
-application = Flask(__name__)
+# =========================================
+# INITIALIZE FLASK APPLICATION
+# =========================================
 
+application = Flask(__name__)
 app = application
 
 
-# Configure CORS
+# =========================================
+# CONFIGURE CORS
+# =========================================
+
 CORS(
     app,
     resources={
@@ -27,108 +29,135 @@ CORS(
     }
 )
 
-# -----------------------------------------
+
+# =========================================
+# HELPER: GENERATE PREDICTION
+# =========================================
+
+def generate_prediction(data):
+
+    required_fields = [
+        "gender",
+        "ethnicity",
+        "parental_level_of_education",
+        "lunch",
+        "test_preparation_course",
+        "reading_score",
+        "writing_score"
+    ]
+
+    missing_fields = [
+        field for field in required_fields
+        if data.get(field) is None or str(data.get(field)).strip() == ""
+    ]
+
+    if missing_fields:
+        raise ValueError(
+            f"Missing fields: {', '.join(missing_fields)}"
+        )
+
+    reading_score = float(data.get("reading_score"))
+    writing_score = float(data.get("writing_score"))
+
+    if not 0 <= reading_score <= 100:
+        raise ValueError("Reading score must be between 0 and 100")
+
+    if not 0 <= writing_score <= 100:
+        raise ValueError("Writing score must be between 0 and 100")
+
+    student = CustomData(
+        gender=data.get("gender"),
+        race_ethnicity=data.get("ethnicity"),
+        parental_level_of_education=data.get(
+            "parental_level_of_education"
+        ),
+        lunch=data.get("lunch"),
+        test_preparation_course=data.get(
+            "test_preparation_course"
+        ),
+        reading_score=reading_score,
+        writing_score=writing_score
+    )
+
+    pred_df = student.get_data_as_data_frame()
+
+    print("Student Data:")
+    print(pred_df)
+
+    predict_pipeline = PredictPipeline()
+
+    results = predict_pipeline.predict(pred_df)
+
+    return float(results[0])
+
+
+# =========================================
 # HOME ROUTE
-# -----------------------------------------
+# =========================================
 
-@app.route('/', methods=['GET'])
+@app.route("/", methods=["GET"])
 def index():
-    return render_template('index.html')
+
+    return render_template("index.html")
 
 
-# -----------------------------------------
+# =========================================
 # EXISTING HTML PREDICTION ROUTE
-# -----------------------------------------
+# =========================================
 
-@app.route('/predictdata', methods=['GET', 'POST'])
+@app.route("/predictdata", methods=["GET", "POST"])
 def predict_datapoint():
 
-    if request.method == 'GET':
-        return render_template('home.html')
+    if request.method == "GET":
+        return render_template("home.html")
 
-    else:
-        data = CustomData(
-            gender=request.form.get('gender'),
-            race_ethnicity=request.form.get('ethnicity'),
-            parental_level_of_education=request.form.get(
-                'parental_level_of_education'
-            ),
-            lunch=request.form.get('lunch'),
-            test_preparation_course=request.form.get(
-                'test_preparation_course'
-            ),
-            reading_score=float(request.form.get('reading_score')),
-            writing_score=float(request.form.get('writing_score'))
-        )
+    try:
 
-        pred_df = data.get_data_as_data_frame()
-
-        print(pred_df)
-        print("Before Prediction")
-
-        predict_pipeline = PredictPipeline()
-
-        print("Mid Prediction")
-
-        results = predict_pipeline.predict(pred_df)
-
-        print("After Prediction")
+        prediction = generate_prediction(request.form)
 
         return render_template(
-            'home.html',
-            results=results[0]
+            "home.html",
+            results=prediction
         )
 
+    except (TypeError, ValueError) as e:
 
-# -----------------------------------------
-# NEW REST API FOR REACT FRONTEND
-# -----------------------------------------
+        return render_template(
+            "home.html",
+            error=str(e)
+        ), 400
 
-@app.route('/api/predict', methods=['POST'])
+    except Exception as e:
+
+        print("HTML Prediction Error:", str(e))
+
+        return render_template(
+            "home.html",
+            error="Prediction failed. Check backend logs."
+        ), 500
+
+
+# =========================================
+# REACT FRONTEND REST API
+# =========================================
+
+@app.route("/api/predict", methods=["POST"])
 def api_predict():
 
     try:
 
-        # Receive JSON data from React
-        data = request.get_json()
+        data = request.get_json(silent=True)
 
-        if not data:
+        if not isinstance(data, dict):
             return jsonify({
                 "status": "error",
-                "message": "No student data received"
+                "message": "Invalid or missing JSON data"
             }), 400
 
-        # Prepare student data
-        student = CustomData(
-            gender=data.get('gender'),
-            race_ethnicity=data.get('ethnicity'),
-            parental_level_of_education=data.get(
-                'parental_level_of_education'
-            ),
-            lunch=data.get('lunch'),
-            test_preparation_course=data.get(
-                'test_preparation_course'
-            ),
-            reading_score=float(data.get('reading_score')),
-            writing_score=float(data.get('writing_score'))
-        )
+        prediction = generate_prediction(data)
 
-        # Convert input into DataFrame
-        pred_df = student.get_data_as_data_frame()
+        print("React Prediction:", prediction)
 
-        print("Received Student Data:")
-        print(pred_df)
-
-        # Load prediction pipeline and predict
-        predict_pipeline = PredictPipeline()
-
-        results = predict_pipeline.predict(pred_df)
-
-        prediction = float(results[0])
-
-        print("Prediction:", prediction)
-
-        # Return prediction to React
         return jsonify({
             "status": "success",
             "prediction": prediction
@@ -138,40 +167,65 @@ def api_predict():
 
         return jsonify({
             "status": "error",
-            "message": f"Invalid student input: {str(e)}"
+            "message": str(e)
         }), 400
 
     except Exception as e:
 
-        print("Prediction Error:", str(e))
+        print("API Prediction Error:", str(e))
 
         return jsonify({
             "status": "error",
             "message": "Prediction failed. Check backend logs."
         }), 500
 
-# -----------------------------------------
-# ROUTE DIAGNOSTICS
-# -----------------------------------------
 
-@app.route('/api/routes', methods=['GET'])
-def list_routes():
+# =========================================
+# API HEALTH CHECK
+# =========================================
+
+@app.route("/api/health", methods=["GET"])
+def health_check():
+
     return jsonify({
-        "routes": [
-            {
-                "path": rule.rule,
-                "methods": list(rule.methods)
-            }
-            for rule in app.url_map.iter_rules()
-        ]
-    })
+        "status": "success",
+        "message": "Student Performance API is running"
+    }), 200
 
 
-# -----------------------------------------
+# =========================================
+# ROUTE DIAGNOSTICS
+# =========================================
+
+@app.route("/api/routes", methods=["GET"])
+def list_routes():
+
+    routes = []
+
+    for rule in app.url_map.iter_rules():
+
+        routes.append({
+            "path": rule.rule,
+            "methods": sorted(
+                method for method in rule.methods
+                if method not in ["HEAD", "OPTIONS"]
+            )
+        })
+
+    return jsonify({
+        "status": "success",
+        "routes": routes
+    }), 200
+
+
+# =========================================
 # APPLICATION ENTRY POINT
-# -----------------------------------------
+# =========================================
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
 
-
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=False
+    )
