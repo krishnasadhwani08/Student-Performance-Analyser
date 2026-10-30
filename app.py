@@ -22,13 +22,12 @@ CORS(
     resources={
         r"/api/*": {
             "origins": [
-                "https://student-performance-analyser-3a2d.vercel.app",
+                "https://student-performance-analyser-3a2d-liqcb8bsn.vercel.app",
                 "http://localhost:5173"
             ]
         }
     }
 )
-
 
 # =========================================
 # HELPER: GENERATE PREDICTION
