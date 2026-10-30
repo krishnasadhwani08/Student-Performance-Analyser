@@ -15,11 +15,17 @@ app = application
 
 
 # Configure CORS
-CORS(app, origins=[
-    "https://student-performance-analyser-3a2d.vercel.app",
-    "http://localhost:5173"
-])
-
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "https://student-performance-analyser-3a2d.vercel.app",
+                "http://localhost:5173"
+            ]
+        }
+    }
+)
 
 # -----------------------------------------
 # HOME ROUTE
