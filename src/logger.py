@@ -1,11 +1,9 @@
-```python
 import logging
 import os
 from datetime import datetime
 
 LOG_FILE = f"{datetime.now().strftime('%m_%d_%y_%H_%M_%S')}.log"
 
-# Use a writable directory
 logs_dir = os.path.join("/tmp", "student_performance_logs")
 os.makedirs(logs_dir, exist_ok=True)
 
@@ -16,4 +14,3 @@ logging.basicConfig(
     format="[%(asctime)s] %(lineno)d %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
-```
