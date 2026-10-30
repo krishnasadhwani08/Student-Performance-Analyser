@@ -22,12 +22,12 @@ const initialForm = {
 };
 
 function Prediction() {
-
   const [formData, setFormData] = useState(initialForm);
   const [prediction, setPrediction] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -40,40 +40,105 @@ function Prediction() {
     setError("");
   };
 
+  // Validate form data
+  const validateForm = () => {
+    const requiredFields = [
+      "gender",
+      "ethnicity",
+      "parental_level_of_education",
+      "lunch",
+      "test_preparation_course",
+      "reading_score",
+      "writing_score"
+    ];
+
+    for (const field of requiredFields) {
+      if (
+        formData[field] === "" ||
+        formData[field] === null ||
+        formData[field] === undefined
+      ) {
+        return "Please fill in all fields.";
+      }
+    }
+
+    const reading = Number(formData.reading_score);
+    const writing = Number(formData.writing_score);
+
+    if (!Number.isFinite(reading) || reading < 0 || reading > 100) {
+      return "Reading score must be between 0 and 100.";
+    }
+
+    if (!Number.isFinite(writing) || writing < 0 || writing > 100) {
+      return "Writing score must be between 0 and 100.";
+    }
+
+    return null;
+  };
+
+  // Submit prediction request
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    setLoading(true);
-    setPrediction(null);
     setError("");
+    setPrediction(null);
+
+    const validationError = validateForm();
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+
+    const studentData = {
+      ...formData,
+      reading_score: Number(formData.reading_score),
+      writing_score: Number(formData.writing_score)
+    };
+
+    console.log("Sending student data:", studentData);
 
     try {
-      const studentData = {
-        ...formData,
-        reading_score: Number(formData.reading_score),
-        writing_score: Number(formData.writing_score)
-      };
-
       const result = await predictStudent(studentData);
 
-      setPrediction(result.prediction);
+      console.log("Backend response:", result);
+
+      if (
+        result.prediction === null ||
+        result.prediction === undefined ||
+        !Number.isFinite(Number(result.prediction))
+      ) {
+        throw new Error("Backend returned an invalid prediction.");
+      }
+
+      setPrediction(Number(result.prediction));
 
     } catch (err) {
-      setError(err.message || "Prediction failed.");
+      console.error("Prediction request failed:", err);
+
+      setError(
+        err.message || "Unable to generate prediction. Please try again."
+      );
+
     } finally {
       setLoading(false);
     }
   };
 
+  // Reset form
   const handleReset = () => {
     setFormData(initialForm);
     setPrediction(null);
     setError("");
+    setLoading(false);
   };
 
   return (
     <div className="prediction-page">
 
+      {/* Navigation */}
       <nav className="navbar">
         <Link to="/" className="brand">
           <GraduationCap size={30} />
@@ -88,6 +153,7 @@ function Prediction() {
 
       <main className="prediction-container">
 
+        {/* Page Heading */}
         <div className="prediction-heading">
           <span className="eyebrow">STUDENT ANALYSIS</span>
 
@@ -99,20 +165,25 @@ function Prediction() {
           </p>
         </div>
 
+        {/* Prediction Form */}
         <form onSubmit={handleSubmit} className="prediction-form">
 
+          {/* Student Information */}
           <div className="form-section">
             <h2>01. Student Information</h2>
 
             <div className="form-grid">
 
               <div className="form-group">
-                <label>Gender</label>
+                <label htmlFor="gender">Gender</label>
+
                 <select
+                  id="gender"
                   name="gender"
                   value={formData.gender}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 >
                   <option value="">Select Gender</option>
                   <option value="male">Male</option>
@@ -121,31 +192,44 @@ function Prediction() {
               </div>
 
               <div className="form-group">
-                <label>Race or Ethnicity</label>
+                <label htmlFor="ethnicity">Race or Ethnicity</label>
+
                 <select
+                  id="ethnicity"
                   name="ethnicity"
                   value={formData.ethnicity}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 >
                   <option value="">Select Group</option>
-                  {["group A", "group B", "group C", "group D", "group E"].map(
-                    (group) => (
-                      <option key={group} value={group}>
-                        {group.toUpperCase()}
-                      </option>
-                    )
-                  )}
+
+                  {[
+                    "group A",
+                    "group B",
+                    "group C",
+                    "group D",
+                    "group E"
+                  ].map((group) => (
+                    <option key={group} value={group}>
+                      {group.toUpperCase()}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div className="form-group">
-                <label>Parental Level of Education</label>
+                <label htmlFor="parental_level_of_education">
+                  Parental Level of Education
+                </label>
+
                 <select
+                  id="parental_level_of_education"
                   name="parental_level_of_education"
                   value={formData.parental_level_of_education}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 >
                   <option value="">Select Education</option>
 
@@ -165,12 +249,15 @@ function Prediction() {
               </div>
 
               <div className="form-group">
-                <label>Lunch Type</label>
+                <label htmlFor="lunch">Lunch Type</label>
+
                 <select
+                  id="lunch"
                   name="lunch"
                   value={formData.lunch}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 >
                   <option value="">Select Lunch Type</option>
                   <option value="standard">Standard</option>
@@ -179,12 +266,17 @@ function Prediction() {
               </div>
 
               <div className="form-group full-width">
-                <label>Test Preparation Course</label>
+                <label htmlFor="test_preparation_course">
+                  Test Preparation Course
+                </label>
+
                 <select
+                  id="test_preparation_course"
                   name="test_preparation_course"
                   value={formData.test_preparation_course}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 >
                   <option value="">Select Course Status</option>
                   <option value="none">Not Completed</option>
@@ -195,14 +287,19 @@ function Prediction() {
             </div>
           </div>
 
+          {/* Academic Scores */}
           <div className="form-section">
             <h2>02. Academic Scores</h2>
 
             <div className="form-grid">
 
               <div className="form-group">
-                <label>Reading Score (0-100)</label>
+                <label htmlFor="reading_score">
+                  Reading Score (0-100)
+                </label>
+
                 <input
+                  id="reading_score"
                   type="number"
                   name="reading_score"
                   min="0"
@@ -212,12 +309,17 @@ function Prediction() {
                   value={formData.reading_score}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 />
               </div>
 
               <div className="form-group">
-                <label>Writing Score (0-100)</label>
+                <label htmlFor="writing_score">
+                  Writing Score (0-100)
+                </label>
+
                 <input
+                  id="writing_score"
                   type="number"
                   name="writing_score"
                   min="0"
@@ -227,12 +329,14 @@ function Prediction() {
                   value={formData.writing_score}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 />
               </div>
 
             </div>
           </div>
 
+          {/* Form Actions */}
           <div className="form-actions">
 
             <button
@@ -266,6 +370,7 @@ function Prediction() {
 
         </form>
 
+        {/* Error Message */}
         {error && (
           <div className="error-result" role="alert">
             <strong>Prediction Error</strong>
@@ -273,8 +378,10 @@ function Prediction() {
           </div>
         )}
 
+        {/* Prediction Result */}
         {prediction !== null && (
           <div className="result-card" aria-live="polite">
+
             <div className="result-icon">
               <Brain size={30} />
             </div>
@@ -284,7 +391,7 @@ function Prediction() {
             <h2>Predicted Mathematics Score</h2>
 
             <div className="result-score">
-              {Number(prediction).toFixed(2)}
+              {prediction.toFixed(2)}
               <span>/ 100</span>
             </div>
 
@@ -292,11 +399,13 @@ function Prediction() {
               Your machine learning model has generated
               the predicted mathematics score.
             </p>
+
           </div>
         )}
 
       </main>
 
+      {/* Footer */}
       <footer>
         Student Performance Analyser | Machine Learning Project
       </footer>
